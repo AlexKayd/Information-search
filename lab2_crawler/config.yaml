@@ -1,0 +1,28 @@
+db:
+  host: "localhost"
+  port: 5432
+  database: "search_corpus"
+  user: "postgres"
+
+logic:
+  delay_seconds: 1
+  user_agent: "MAI-SearchBot/1.0 (student project; contact: alexkayd@list.ru)"
+  respect_robots_txt: true
+  use_mama_sitemap: true
+  use_letidor_sitemap: true
+  max_documents: 60000
+
+  sources:
+    - name: "7ya"
+      start_urls:
+        - "https://www.7ya.ru/article/6-navykov-bezopasnosti-kotorym-nuzhno-nauchit-malysha-2-3-let/"
+        - "https://www.7ya.ru/article/Mama-pyati-detej-kazhdyj-zasypaet-v-svoej-krovati/"
+        - "https://www.7ya.ru/article/Kak-nauchit-rebenka-ostavatsya-bez-mamy/"
+        - "https://www.7ya.ru/article/Kak-perevesti-rebenka-na-odin-dnevnoj-son-lajfhaki-dlya-mam/"
+        - "https://www.7ya.ru/article/Kak-podgotovit-rebenka-k-detskomu-sadu-nachnite-s-sebya/"
+
+    - name: "mama"
+      start_urls: []
+
+    - name: "letidor"
+      start_urls: []
