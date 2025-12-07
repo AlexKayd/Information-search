@@ -10,7 +10,7 @@ logic:
   respect_robots_txt: true
   use_mama_sitemap: true
   use_letidor_sitemap: true
-  max_documents: 60000
+  max_documents: 54543
 
   sources:
     - name: "7ya"
