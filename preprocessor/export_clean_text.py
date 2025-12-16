@@ -1,3 +1,4 @@
+# python export_clean_text.py ../config.yaml
 import os
 import sys
 import yaml
