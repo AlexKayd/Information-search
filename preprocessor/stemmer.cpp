@@ -5,7 +5,6 @@
 #include <fstream>
 #include <vector>
 #include <string>
-#include <algorithm>
 #include <filesystem>
 #include <windows.h>
 #include <chrono>
@@ -19,6 +18,22 @@ void setup_utf8_console() {
 bool ends_with(const std::string& word, const std::string& suffix) {
     if (suffix.length() > word.length()) return false;
     return word.compare(word.length() - suffix.length(), suffix.length(), suffix) == 0;
+}
+
+void sort_by_length_desc(std::vector<std::string>& vec) {
+    for (size_t i = 0; i < vec.size() - 1; ++i) {
+        size_t max_idx = i;
+        for (size_t j = i + 1; j < vec.size(); ++j) {
+            if (vec[j].length() > vec[max_idx].length()) {
+                max_idx = j;
+            }
+        }
+        if (max_idx != i) {
+            std::string temp = std::move(vec[i]);
+            vec[i] = std::move(vec[max_idx]);
+            vec[max_idx] = std::move(temp);
+        }
+    }
 }
 
 std::string stem(const std::string& word) {
@@ -110,13 +125,10 @@ std::string stem(const std::string& word) {
         "ого", "ому", "ыми", "ых", "их",
         "а", "у", "ы", "о", "е", "и", "ь", "я", "й", "ю"
     };
-    
+
     static bool sorted = false;
     if (!sorted) {
-        std::sort(suffixes.begin(), suffixes.end(),
-            [](const std::string& a, const std::string& b) {
-                return a.length() > b.length();
-            });
+        sort_by_length_desc(suffixes);
         sorted = true;
     }
     
