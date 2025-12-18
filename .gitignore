@@ -1,2 +1,5 @@
 .env
 **/tokens/
+**/stems/
+**/docs/
+*.exe

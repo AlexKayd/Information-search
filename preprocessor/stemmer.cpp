@@ -15,6 +15,34 @@ void setup_utf8_console() {
     SetConsoleCP(CP_UTF8);
 }
 
+// загрузка стоп слов
+std::vector<std::string> load_stop_words() {
+    std::vector<std::string> stops;
+    std::ifstream file("stop_words.txt", std::ios::binary);
+    if (!file.is_open()) {
+        std::cerr << "Файл stop_words.txt не найден. Стоп-слова не будут удалены.\n";
+        return stops;
+    }
+    std::string line;
+    while (std::getline(file, line)) {
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        if (!line.empty()) {
+            stops.push_back(line);
+        }
+    }
+    return stops;
+}
+
+// является ли стем стоп словом
+bool is_stop_word(const std::string& term, const std::vector<std::string>& stop_words) {
+    for (const auto& sw : stop_words) {
+        if (term == sw) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool ends_with(const std::string& word, const std::string& suffix) {
     if (suffix.length() > word.length()) return false;
     return word.compare(word.length() - suffix.length(), suffix.length(), suffix) == 0;
@@ -60,7 +88,7 @@ std::string stem(const std::string& word) {
         {"ание", ""},
         {"ение", ""},
         {"ться", ""},
-        {"иться", ""},
+        {"ться", ""},
         {"тель", ""},
         {"ник", ""},
         {"щик", ""},
@@ -91,14 +119,13 @@ std::string stem(const std::string& word) {
         if (ends_with(w, "ся") || ends_with(w, "сь")) {
             w = w.substr(0, w.length() - 4);
             if (w.length() < 4) return w;
-            
             if (ends_with(w, "ть") && w.length() > 4) {
                 return w.substr(0, w.length() - 4);
             }
         }
     }
     
-    // основные суффиксы
+    
     static std::vector<std::string> suffixes = {
         "ующийся", "ующаяся", "ующееся", "ющиеся",
         "овавшийся", "евавшийся", "ивавшийся",
@@ -217,10 +244,32 @@ void write_stems(const std::string& path, const std::vector<std::string>& stems)
     }
 }
 
+// подсчет UTF-8 символов
+size_t utf8_char_count(const std::string& s) {
+    size_t count = 0;
+    for (size_t i = 0; i < s.size(); ++i) {
+        unsigned char c = static_cast<unsigned char>(s[i]);
+        if ((c & 0x80) == 0) {
+            count++;
+        } else if ((c & 0xE0) == 0xC0) {
+            count++;
+            i++;
+        } else if ((c & 0xF0) == 0xE0) {
+            count++;
+            i += 2;
+        } else if ((c & 0xF8) == 0xF0) {
+            count++;
+            i += 3;
+        }
+    }
+    return count;
+}
+
 int main() {
     setup_utf8_console();
     // test_stemmer();
     
+    auto stop_words = load_stop_words();
     const std::string in_dir = "tokens";
     const std::string out_dir = "stems";
     
@@ -233,6 +282,7 @@ int main() {
     
     int processed_files = 0;
     int total_tokens = 0;
+    int total_filtered = 0;
     size_t total_input_bytes = 0;
     auto start = std::chrono::high_resolution_clock::now();
     
@@ -249,7 +299,21 @@ int main() {
             stems.reserve(tokens.size());
             
             for (const auto& tok : tokens) {
-                stems.push_back(stem(tok));
+                // фильтрация на стоп-слова
+                if (is_stop_word(tok, stop_words)) {
+                    total_filtered++;
+                    continue;
+                }
+                // стемминг
+                std::string stemmed = stem(tok);
+
+                // удаляю слишком короткие стемы
+                if (utf8_char_count(stemmed) < 2) {
+                    total_filtered++;
+                    continue;
+                }
+
+                stems.push_back(stemmed);
             }
             
             std::string out_name = entry.path().stem().string() + ".stems";
@@ -267,7 +331,7 @@ int main() {
                 double mb = total_input_bytes / (1024.0 * 1024.0);
                 double speed = (elapsed > 0) ? mb / elapsed : 0.0;
                 
-                std::cout << "Обработано " << processed_files << " файлов, " << "стем: " << total_tokens << ", " << "скорость: " << std::fixed << std::setprecision(2)  << speed << " МБ/сек" << std::endl;
+                std::cout << "Обработано " << processed_files << " файлов, стем: " << (total_tokens - total_filtered) << " (отфильтровано: " << total_filtered << "), скорость: " << std::fixed << std::setprecision(2) << speed << " МБ/сек\n";
             }
         }
     } catch (const std::exception& e) {
@@ -281,7 +345,8 @@ int main() {
     double avg_speed = (elapsed > 0) ? mb / elapsed : 0.0;
     
     std::cout << "\nФайлов обработано: " << processed_files << "\n";
-    std::cout << "Всего стем: " << total_tokens << "\n";
+    std::cout << "Всего стем: " << (total_tokens - total_filtered) << "\n";
+    std::cout << "Отфильтровано стоп-слов: " << total_filtered << "\n";
     std::cout << "Время выполнения: " << std::fixed << std::setprecision(2) << elapsed << " сек\n";
     std::cout << "Средняя скорость: " << std::fixed << std::setprecision(2) << avg_speed << " МБ/сек\n";
     

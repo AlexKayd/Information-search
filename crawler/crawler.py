@@ -1,3 +1,4 @@
+# python crawler.py ..\config.yaml
 import sys
 import os
 import pickle
