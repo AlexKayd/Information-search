@@ -64,11 +64,32 @@ void sort_by_length_desc(std::vector<std::string>& vec) {
     }
 }
 
+// подсчет UTF-8 символов
+size_t utf8_char_count(const std::string& s) {
+    size_t count = 0;
+    for (size_t i = 0; i < s.size(); ++i) {
+        unsigned char c = static_cast<unsigned char>(s[i]);
+        if ((c & 0x80) == 0) {
+            count++;
+        } else if ((c & 0xE0) == 0xC0) {
+            count++;
+            i++;
+        } else if ((c & 0xF0) == 0xE0) {
+            count++;
+            i += 2;
+        } else if ((c & 0xF8) == 0xF0) {
+            count++;
+            i += 3;
+        }
+    }
+    return count;
+}
+
 std::string stem(const std::string& word) {
     if (word.length() < 3) return word;
     
     std::string w = word;
-    
+
     // слова исключения
     static const std::vector<std::string> exceptions = {
         "быть", "есть", "мочь", "хотеть", "знать", "идти", "дать", "видеть", "думать", "сказать"
@@ -103,12 +124,12 @@ std::string stem(const std::string& word) {
         {"ающ", ""},
         {"ющ", ""}
     };
-    
+
     // пробую специальные правила
     for (const auto& rule : special_rules) {
         if (ends_with(w, rule.suffix)) {
             std::string stemmed = w.substr(0, w.length() - rule.suffix.length()) + rule.replacement;
-            if (stemmed.length() >= 2) {
+            if (stemmed.length() >= 2 && utf8_char_count(stemmed) >= 2) {
                 return stemmed;
             }
         }
@@ -124,7 +145,6 @@ std::string stem(const std::string& word) {
             }
         }
     }
-    
     
     static std::vector<std::string> suffixes = {
         "ующийся", "ующаяся", "ующееся", "ющиеся",
@@ -149,8 +169,7 @@ std::string stem(const std::string& word) {
         "альный", "ельный", "ильный", "ольный",
         "ий", "ая", "ое", "ые", "ой", "ый", "ью", "ью",
         "его", "ему", "ими", "ем", 
-        "ого", "ому", "ыми", "ых", "их",
-        "а", "у", "ы", "о", "е", "и", "ь", "я", "й", "ю"
+        "ого", "ому", "ыми", "ых", "их"
     };
 
     static bool sorted = false;
@@ -160,12 +179,10 @@ std::string stem(const std::string& word) {
     }
     
     for (const auto& suf : suffixes) {
-        if (w.length() > suf.length() + 1) {
-            if (ends_with(w, suf)) {
-                std::string stemmed = w.substr(0, w.length() - suf.length());
-                if (stemmed.length() >= 2) {
-                    return stemmed;
-                }
+        if (ends_with(w, suf)) {
+            std::string stemmed = w.substr(0, w.length() - suf.length());
+            if (utf8_char_count(stemmed) >= 3) {
+                return stemmed;
             }
         }
     }
@@ -176,6 +193,8 @@ std::string stem(const std::string& word) {
 // void test_stemmer() {
 //     std::vector<std::pair<std::string, std::string>> tests = {
 //         {"кошки", "кошк"},
+//         {"мама", "мама"},
+//         {"мамы", "мамы"},
 //         {"собаки", "собак"},
 //         {"операция", "операц"},
 //         {"программирование", "программир"},
@@ -244,26 +263,6 @@ void write_stems(const std::string& path, const std::vector<std::string>& stems)
     }
 }
 
-// подсчет UTF-8 символов
-size_t utf8_char_count(const std::string& s) {
-    size_t count = 0;
-    for (size_t i = 0; i < s.size(); ++i) {
-        unsigned char c = static_cast<unsigned char>(s[i]);
-        if ((c & 0x80) == 0) {
-            count++;
-        } else if ((c & 0xE0) == 0xC0) {
-            count++;
-            i++;
-        } else if ((c & 0xF0) == 0xE0) {
-            count++;
-            i += 2;
-        } else if ((c & 0xF8) == 0xF0) {
-            count++;
-            i += 3;
-        }
-    }
-    return count;
-}
 
 int main() {
     setup_utf8_console();
@@ -299,12 +298,12 @@ int main() {
             stems.reserve(tokens.size());
             
             for (const auto& tok : tokens) {
-                // фильтрация на стоп-слова
+
                 if (is_stop_word(tok, stop_words)) {
                     total_filtered++;
                     continue;
                 }
-                // стемминг
+
                 std::string stemmed = stem(tok);
 
                 // удаляю слишком короткие стемы
@@ -318,7 +317,7 @@ int main() {
             
             std::string out_name = entry.path().stem().string() + ".stems";
             std::string out_path = out_dir + "/" + out_name;
-            
+
             write_stems(out_path, stems);
             
             processed_files++;
@@ -330,7 +329,7 @@ int main() {
                 double elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(now - start).count();
                 double mb = total_input_bytes / (1024.0 * 1024.0);
                 double speed = (elapsed > 0) ? mb / elapsed : 0.0;
-                
+
                 std::cout << "Обработано " << processed_files << " файлов, стем: " << (total_tokens - total_filtered) << " (отфильтровано: " << total_filtered << "), скорость: " << std::fixed << std::setprecision(2) << speed << " МБ/сек\n";
             }
         }
