@@ -5,6 +5,7 @@
 //    -o searcher.exe
 
 // .\searcher.exe
+// .\searcher.exe --ids-only 
 
 #include <iostream>
 #include <fstream>
@@ -304,17 +305,27 @@ std::vector<int> execute_query(const std::string& raw_query, const std::vector<I
 }
 
 
-int main() {
+int main(int argc, char* argv[]) {
     setup_utf8_console();
+
+    bool ids_only_mode = false;
+    if (argc == 2 && std::string(argv[1]) == "--ids-only") {
+        ids_only_mode = true;
+    } else if (argc > 1) {
+        return 1;
+    }
 
     std::cout << "Загрузка индекса.\n";
     std::vector<IndexEntry> index;
     load_index("boolean_index.txt", index);
-
-    std::cout << "Загрузка конфигурации БД.\n";
     DBConfig cfg = load_db_config();
 
-    std::cout << "\nВведите запрос:\n";
+    if (ids_only_mode) {
+        std::cout << "Режим: только ID. Введите запрос:\n";
+    } else {
+        std::cout << "\nВведите запрос:\n";
+    }
+
     std::string query;
     while (std::getline(std::cin, query)) {
         if (query == "exit") break;
@@ -322,18 +333,32 @@ int main() {
 
         auto doc_ids = execute_query(query, index);
         if (doc_ids.empty()) {
-            std::cout << "Ничего не найдено.\n\n";
+            if (!ids_only_mode) {
+                std::cout << "Ничего не найдено.\n\n";
+            }
+            if (!ids_only_mode) {
+                std::cout << "\nВведите запрос:\n";
+            }
             continue;
         }
 
-        auto results = fetch_metadata(doc_ids, cfg);
-        std::cout << "Найдено: " << results.size() << " документов\n";
-        for (const auto& r : results) {
-            std::cout << "[id: " << r.id << "] " << r.title << " — " << r.normalized_url << "\n";
+        if (ids_only_mode) {
+            std::cout << "Найдено: " << doc_ids.size() << " документов\n";
+            for (int id : doc_ids) {
+                std::cout << id << "\n";
+            }
+            std::cout << "Найдено: " << doc_ids.size() << " документов\n";
+            std::cout << "\nВведите запрос:\n";
+        } else {
+            auto results = fetch_metadata(doc_ids, cfg);
+            std::cout << "Найдено: " << results.size() << " документов\n";
+            for (const auto& r : results) {
+                std::cout << "[id: " << r.id << "] " << r.title << " — " << r.normalized_url << "\n";
+            }
+            std::cout << "Найдено: " << results.size() << " документов\n";
+            std::cout << "\n \n";
+            std::cout << "\nВведите запрос:\n";
         }
-        std::cout << "Найдено: " << results.size() << " документов\n";
-        std::cout << "\n \n";
-        std::cout << "\nВведите запрос:\n";
     }
 
     return 0;
